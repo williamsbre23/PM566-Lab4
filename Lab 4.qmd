@@ -1,0 +1,138 @@
+---
+title: "Lab 4"
+author: "Breyonne Williams"
+format: 
+  html:
+    embed-resources: true
+editor: visual
+---
+
+## Exercise 1
+
+```{r}
+if (!file.exists("met_all.gz"))
+  download.file("https://raw.githubusercontent.com/USCbiostats/data-science-data/master/02_met/met_all.gz",
+  destfile = "met_all.gz",
+  method = "libcurl",
+  timeout = 60
+  )
+
+met <- data.table::fread("met_all.gz")
+```
+
+## Exercise 2
+
+```{r}
+met <- met[met$temp > -17][elev == 9999.0, elev := NA]
+
+met_avg <- met[, .(mean_temp = mean(met$temp),
+              mean_rh = mean(met$rh),
+              mean_wind.sp = mean(met$wind.sp),
+              mean_vis.dist = mean(met$vis.dist),
+              mean_dew.point = mean(met$dew.point),
+              mean_lat = mean(met$lat),
+              mean_lon = mean(met$lon),
+              mean_elev = mean(met$elev)),
+          by = .(met$USAFID)]
+
+met[, region := ifelse(lon <= -98.00 & lat >= 39.71, "NW",
+                             ifelse(lon <= -98.00 & lat < 39.71, "SW", 
+                                     ifelse(lon > -98.00 & lat >= 39.71, "NE", "SE")))]
+```
+
+## Exercise 3
+
+```{r}
+ggplot(met, aes(x = "1", y = wind.sp, fill = region)) +
+  geom_violin(trim = FALSE) + 
+  geom_boxplot(width = 0.1, outlier.shape = NA) +
+  facet_wrap(~ region) +
+  labs(x = NULL, y = "Wind Speed") +
+  theme_minimal()
+```
+
+## Exercise 4
+
+```{r}
+ggplot(met, aes(x = dew.point, y = wind.sp, color = region)) +
+  geom_jitter(width = 0.2, height = 0.2, na.rm = TRUE) +
+  stat_smooth(method = "lm", formula = y ~ x, na.rm = TRUE) +
+  labs(x = "Dew Point", y = "Wind Speed") +
+  theme_minimal()
+```
+
+## Exercise 5
+
+```{r}
+ggplot(met, aes(x = met$elev, fill = region)) +
+  geom_bar(position = "dodge", na.rm = TRUE) +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Elevation Category", y = "Number of Stations", fill = "Region") +
+  ggtitle("Weather Stations by Elevation Category and Region") +
+  theme_minimal()
+```
+
+## Exercise 6
+
+```{r}
+ggplot(met, aes(x = region, y = dew.point, fill = region)) +
+  stat_summary(fun.data = "mean_sdl", fun.args = list(mult = 1), geom = "bar", na.rm = TRUE) +
+  stat_summary(fun.data = "mean_sdl", fun.args = list(mult = 1), geom = "errorbar", na.rm = TRUE, width = 0.2) +
+  labs(x = "Region", y = "Dew Point") +
+  ggtitle("Mean Dew Point by Region with Std Dev Error Bars") +
+  theme_minimal()
+```
+
+## Exercise 7
+
+```{r}
+met <- met[!is.na(met$rh), ]
+
+color_palette <- colorFactor(
+  palette = c("blue", "green", "yellow", "red", "orange"),
+  domain = met$rh)
+
+m <- leaflet(met) %>%
+  addProviderTiles(providers$Stamen.TonerLite) %>%
+  addCircleMarkers(
+    lng = ~lon,
+    lat = ~lat,
+    radius = 5,
+    color = ~color_palette(rh),
+    fillOpacity = 0.7,
+    popup = ~paste("Relative Humidity:", rh),
+  )
+
+top_10 <- met[order(-met$rh), ][1:10, ]
+m <- m %>%
+  addMarkers(
+    lng = top_10$lon,
+    lat = top_10$lat,
+    label = ~paste("RH:", rh),
+    labelOptions = labelOptions(noHide = TRUE)
+   )
+m <- m %>%
+  addLegend(
+    title = "Relative Humidity",
+    colors = c("blue", "green", "yellow", "red", "orange"),
+    values = ~met$rh ,
+    opacity = 0.7
+  )
+```
+
+## Exercise 8
+
+```{r}
+library(gganimate)
+
+met$rh <- as.POSIXct(met$rh)
+
+temperature_plot <- ggplot(met, aes(x = timestamp, y = temperature)) +
+  geom_line() +
+  labs(x = "Time", y = "Temperature (°C)") +
+  theme_minimal() +
+  transition_reveal(timestamp)
+
+anim <- animate(temperature_plot, nframes = length(unique(met$rh)))
+anim
+```
