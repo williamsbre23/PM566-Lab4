@@ -111,13 +111,6 @@ m <- m %>%
     label = ~paste("RH:", rh),
     labelOptions = labelOptions(noHide = TRUE)
    )
-m <- m %>%
-  addLegend(
-    title = "Relative Humidity",
-    colors = c("blue", "green", "yellow", "red", "orange"),
-    values = ~met$rh ,
-    opacity = 0.7
-  )
 ```
 
 ## Exercise 8
@@ -125,14 +118,11 @@ m <- m %>%
 ```{r}
 library(gganimate)
 
-met$rh <- as.POSIXct(met$rh)
-
 temperature_plot <- ggplot(met, aes(x = timestamp, y = temperature)) +
   geom_line() +
   labs(x = "Time", y = "Temperature (°C)") +
   theme_minimal() +
   transition_reveal(timestamp)
 
-anim <- animate(temperature_plot, nframes = length(unique(met$rh)))
-anim
+anim <- animate(temperature_plot, nframes = 1000)
 ```
